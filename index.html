@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#dc2626">
+  <meta name="description" content="Gram-Emergency Ride connects rural communities with local transport while complementing official emergency services.">
+  <title>Gram-Emergency Ride — Rural Emergency Transport</title>
+
+  <!-- Tailwind and Font Awesome are the only external UI dependencies. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <style>
+    :root { color-scheme: light; }
+    html { scroll-behavior: smooth; }
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button, a, input, select { -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 3px solid #f59e0b; outline-offset: 3px;
+    }
+    .sos-pulse { animation: sos-pulse 1.8s ease-out infinite; }
+    @keyframes sos-pulse {
+      0% { box-shadow: 0 0 0 0 rgba(220,38,38,.44), 0 14px 28px rgba(153,27,27,.18); }
+      70% { box-shadow: 0 0 0 15px rgba(220,38,38,0), 0 14px 28px rgba(153,27,27,.18); }
+      100% { box-shadow: 0 0 0 0 rgba(220,38,38,0), 0 14px 28px rgba(153,27,27,.18); }
+    }
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status-dot { animation: dot 1.5s ease-in-out infinite; }
+    @keyframes dot { 50% { opacity: .35; transform: scale(.8); } }
+    #routeBase { fill: none; stroke: #cbd5e1; stroke-width: 13; stroke-linecap: round; stroke-linejoin: round; }
+    #routeProgress { fill: none; stroke: #2563eb; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+    #driverMarker { transform-box: view-box; transform-origin: center; filter: drop-shadow(0 2px 3px rgba(15,23,42,.35)); }
+    dialog::backdrop { background: rgba(15,23,42,.65); backdrop-filter: blur(3px); }
+    dialog[open] { animation: dialog-in .18s ease-out; }
+    @keyframes dialog-in { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900">
+  <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-white focus:px-4 focus:py-3 focus:shadow-lg">Skip to main content</a>
+
+  <!-- Keep official emergency services distinct from the community demo. -->
+  <div class="bg-red-800 text-white">
+    <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-4 py-3 sm:flex-row sm:px-6 lg:px-8">
+      <p class="flex items-start gap-2 text-center text-sm font-bold sm:text-left">
+        <i class="fa-solid fa-triangle-exclamation mt-0.5 text-amber-300" aria-hidden="true"></i>
+        <span>For life-threatening emergencies, contact official services first: <strong>112, 108, or 102.</strong></span>
+      </p>
+      <div class="flex shrink-0 gap-2" aria-label="Call official emergency services">
+        <a class="rounded-lg bg-white px-3 py-1.5 text-sm font-extrabold text-red-800 hover:bg-red-50" href="tel:112" aria-label="Call official emergency number 112">Call 112</a>
+        <a class="rounded-lg bg-amber-300 px-3 py-1.5 text-sm font-extrabold text-red-950 hover:bg-amber-200" href="tel:108" aria-label="Call ambulance service 108">108</a>
+        <a class="rounded-lg border border-white/50 px-3 py-1.5 text-sm font-extrabold text-white hover:bg-white/10" href="tel:102" aria-label="Call ambulance service 102">102</a>
+      </div>
+    </div>
+  </div>
+
+  <header class="border-b border-slate-200 bg-white">
+    <div class="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
+      <a href="#" class="flex items-center gap-3" aria-label="Gram-Emergency Ride home">
+        <span class="grid h-12 w-12 place-items-center rounded-2xl bg-red-600 text-xl text-white shadow-lg shadow-red-200"><i class="fa-solid fa-truck-medical" aria-hidden="true"></i></span>
+        <span>
+          <span class="block text-lg font-black tracking-tight text-slate-950">Gram-Emergency Ride</span>
+          <span class="block text-xs font-medium text-slate-500">Smart Rural Emergency Transport Coordination</span>
+        </span>
+      </a>
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between md:justify-end">
+        <span class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
+          <span class="status-dot h-2.5 w-2.5 rounded-full bg-emerald-500" aria-hidden="true"></span>
+          Demo service · Example village
+        </span>
+        <div class="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-2.5 sm:ml-2">
+          <img src="./founder.jpeg" alt="Debanjan Ghosh, founder and developer of Gram-Emergency Ride" class="h-12 w-12 rounded-full border-2 border-white object-cover shadow-sm">
+          <div class="pr-2">
+            <p class="text-[10px] font-black uppercase tracking-wider text-amber-800">Founder &amp; Developer</p>
+            <p class="text-sm font-extrabold text-slate-900">Debanjan Ghosh</p>
+            <p class="mt-0.5 text-[10px] font-semibold leading-4 text-slate-600">Class XI-A · PM Shri Kendriya Vidyalaya No. 2 Faridabad</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" class="mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-10 lg:px-8">
+    <section class="grid gap-6 lg:grid-cols-[1.25fr_.75fr] lg:items-stretch" aria-labelledby="welcome-title">
+      <div class="overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-red-950 p-6 text-white shadow-xl sm:p-9">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-red-100"><i class="fa-solid fa-shield-heart mr-1.5" aria-hidden="true"></i>Community transport coordination</span>
+          <span class="rounded-full bg-amber-300/15 px-3 py-1 text-xs font-semibold text-amber-200">Prototype · simulated matching</span>
+        </div>
+        <h1 id="welcome-title" class="mt-5 max-w-2xl text-3xl font-black leading-tight tracking-tight sm:text-5xl">Help is closer when the community is connected.</h1>
+        <p class="mt-4 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">Request a ride from a local listed driver to a nearby health center. This prototype complements official services—it does not dispatch an ambulance or replace emergency care.</p>
+        <div class="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <button id="openSos" type="button" class="sos-pulse inline-flex min-h-14 items-center justify-center gap-3 rounded-2xl bg-red-600 px-6 py-4 text-base font-black tracking-wide text-white transition hover:bg-red-500 active:scale-[.99]">
+            <span class="text-xl" aria-hidden="true">🚨</span> RAISE EMERGENCY SOS
+          </button>
+          <span class="text-xs leading-5 text-slate-300"><i class="fa-solid fa-location-dot mr-1 text-amber-300" aria-hidden="true"></i>Pickup location is detected with your permission</span>
+        </div>
+      </div>
+
+      <aside class="rounded-3xl border border-red-100 bg-white p-6 shadow-sm sm:p-7" aria-labelledby="safety-title">
+        <div class="flex items-center gap-3">
+          <span class="grid h-11 w-11 place-items-center rounded-xl bg-amber-100 text-amber-700"><i class="fa-solid fa-phone-volume" aria-hidden="true"></i></span>
+          <div><h2 id="safety-title" class="font-extrabold">Need urgent help?</h2><p class="text-xs text-slate-500">Official services come first</p></div>
+        </div>
+        <p class="mt-4 text-sm leading-6 text-slate-600">If someone is in immediate danger, call an official emergency number now. A local ride request is not an emergency-service dispatch.</p>
+        <div class="mt-5 grid grid-cols-3 gap-2">
+          <a href="tel:112" class="rounded-xl border border-red-200 bg-red-50 px-3 py-3 text-center hover:bg-red-100"><span class="block text-lg font-black text-red-700">112</span><span class="text-[11px] font-semibold text-slate-600">Emergency</span></a>
+          <a href="tel:108" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-center hover:bg-slate-100"><span class="block text-lg font-black text-slate-800">108</span><span class="text-[11px] font-semibold text-slate-600">Ambulance</span></a>
+          <a href="tel:102" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-center hover:bg-slate-100"><span class="block text-lg font-black text-slate-800">102</span><span class="text-[11px] font-semibold text-slate-600">Health transport</span></a>
+        </div>
+      </aside>
+    </section>
+
+    <section class="mt-8 grid gap-6 lg:grid-cols-[1.25fr_.75fr]" aria-label="Request and local driver dashboard">
+      <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div><p class="text-xs font-black uppercase tracking-[.16em] text-red-600">Live request tracker</p><h2 class="mt-1 text-xl font-black tracking-tight">Your ride status</h2></div>
+          <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600"><i class="fa-solid fa-flask mr-1" aria-hidden="true"></i>Simulation</span>
+        </div>
+        <div id="tracker" class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-5" aria-live="polite" aria-atomic="true">
+          <div class="flex gap-4">
+            <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-slate-200 text-slate-600"><i class="fa-solid fa-hourglass-start" aria-hidden="true"></i></span>
+            <div><p id="trackerTitle" class="font-extrabold text-slate-800">No active ride request</p><p id="trackerDetail" class="mt-1 text-sm leading-5 text-slate-600">Tap “Raise Emergency SOS” to start a simulated request, or request a driver below.</p></div>
+          </div>
+          <div id="trackerMeta" class="mt-4 hidden border-t border-slate-200 pt-3 text-xs font-semibold text-slate-600"></div>
+          <div id="routeMap" class="mt-4 hidden overflow-hidden rounded-2xl border border-slate-200 bg-[#eaf2eb]" aria-label="Animated illustrative route map">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/80 bg-white/90 px-4 py-3">
+              <div><p class="text-xs font-black uppercase tracking-wide text-blue-800"><i class="fa-solid fa-route mr-1" aria-hidden="true"></i>Driver route preview</p><p id="routeInstruction" class="mt-0.5 text-sm font-bold text-slate-800" aria-live="polite">Waiting for driver route…</p></div>
+              <span class="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-extrabold text-amber-900">Illustrative · not live road directions</span>
+            </div>
+            <svg id="routeSvg" class="block h-auto w-full" viewBox="0 0 700 340" role="img" aria-labelledby="routeTitle routeDescription">
+              <title id="routeTitle">Illustrative driver route with turns to your pickup</title>
+              <desc id="routeDescription">A demo vehicle moves along a winding route to a pickup pin. It does not show real roads or live driver location.</desc>
+              <rect width="700" height="340" fill="#eaf2eb"/>
+              <g fill="#d7e8d7" opacity=".8">
+                <rect x="18" y="24" width="92" height="54" rx="12"/><rect x="157" y="28" width="67" height="68" rx="12"/>
+                <rect x="295" y="18" width="72" height="62" rx="12"/><rect x="465" y="18" width="64" height="46" rx="12"/>
+                <rect x="585" y="26" width="94" height="74" rx="12"/><rect x="28" y="190" width="78" height="65" rx="12"/>
+                <rect x="170" y="257" width="94" height="55" rx="12"/><rect x="318" y="254" width="68" height="58" rx="12"/>
+                <rect x="478" y="256" width="70" height="56" rx="12"/><rect x="584" y="238" width="88" height="74" rx="12"/>
+                <rect x="197" y="126" width="40" height="34" rx="9"/><rect x="414" y="118" width="42" height="35" rx="9"/>
+              </g>
+              <g fill="none" stroke="#fff" stroke-linecap="round" stroke-width="19">
+                <path d="M25 130H132V274H300V202H389V101H553V178H661"/>
+                <path d="M110 32V130M300 202V318M389 101V26M553 178V318M25 274H8M553 101H684"/>
+              </g>
+              <g fill="none" stroke="#d0d9d3" stroke-linecap="round" stroke-width="2">
+                <path d="M25 130H132V274H300V202H389V101H553V178H661"/>
+                <path d="M110 32V130M300 202V318M389 101V26M553 178V318M25 274H8M553 101H684"/>
+              </g>
+              <path id="routeBase" d="M54 274H132V274H300V202H389V101H553V178H635"/>
+              <path id="routeProgress" d="M54 274H132V274H300V202H389V101H553V178H635"/>
+              <g class="map-labels" fill="#475569" font-family="Inter, sans-serif" font-size="12" font-weight="700">
+                <text x="25" y="115">Village Road</text><text x="151" y="294">Market Street</text>
+                <text x="316" y="190">Bus Stand</text><text x="408" y="87">North Lane</text>
+                <text x="556" y="202">Main Road</text><text x="15" y="25" fill="#15803d">Paddy fields</text>
+              </g>
+              <g transform="translate(635 178)" aria-label="Pickup destination">
+                <circle r="19" fill="#dc2626" opacity=".16"><animate attributeName="r" values="15;24;15" dur="2s" repeatCount="indefinite"/></circle>
+                <path d="M0-15c-7 0-12 5-12 12 0 9 12 22 12 22S12 6 12-3C12-10 7-15 0-15Zm0 17a5 5 0 1 1 0-10 5 5 0 0 1 0 10Z" fill="#dc2626"/>
+              </g>
+              <g id="driverMarker" transform="translate(54 274)">
+                <circle r="17" fill="#2563eb" stroke="#fff" stroke-width="4"/>
+                <path d="M-9 4h18l-2-7a2 2 0 0 0-2-2h-9a2 2 0 0 0-2 2l-3 7Zm2-6h10l1 4h-12l1-4Zm-1 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm12 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" fill="#fff"/>
+              </g>
+              <g transform="translate(54 305)"><circle r="5" fill="#2563eb"/><text x="10" y="4" fill="#334155" font-family="Inter, sans-serif" font-size="11" font-weight="700">Driver start</text></g>
+              <g transform="translate(635 220)"><circle r="5" fill="#dc2626"/><text x="-105" y="4" fill="#991b1b" font-family="Inter, sans-serif" font-size="11" font-weight="800">Your pickup</text></g>
+            </svg>
+            <div class="flex flex-wrap items-center justify-between gap-2 border-t border-white/80 bg-white/90 px-4 py-3 text-xs">
+              <span id="routeDistance" class="font-bold text-slate-700"><i class="fa-solid fa-location-dot mr-1 text-blue-700" aria-hidden="true"></i>Waiting for pickup location</span>
+              <span class="text-slate-500">Route animation is accelerated for this demo</span>
+            </div>
+          </div>
+        </div>
+        <div class="mt-5 grid gap-3 sm:grid-cols-3">
+          <div class="rounded-xl bg-slate-50 p-3"><span class="text-xs font-bold uppercase tracking-wide text-slate-500">Pickup</span><p id="pickupLabel" class="mt-1 text-sm font-bold text-slate-800">Not confirmed</p></div>
+          <div class="rounded-xl bg-slate-50 p-3"><span class="text-xs font-bold uppercase tracking-wide text-slate-500">Emergency type</span><p id="typeLabel" class="mt-1 text-sm font-bold text-slate-800">Not selected</p></div>
+          <div class="rounded-xl bg-slate-50 p-3"><span class="text-xs font-bold uppercase tracking-wide text-slate-500">Selected driver</span><p id="driverLabel" class="mt-1 text-sm font-bold text-slate-800">None</p></div>
+        </div>
+      </div>
+
+      <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+        <div class="flex items-center justify-between gap-3">
+          <div><p class="text-xs font-black uppercase tracking-[.16em] text-emerald-700">Local network</p><h2 class="mt-1 text-xl font-black tracking-tight">Matching at a glance</h2></div>
+          <span class="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-700"><i class="fa-solid fa-people-arrows-left-right" aria-hidden="true"></i></span>
+        </div>
+        <div class="mt-5 grid grid-cols-2 gap-3">
+          <div class="rounded-xl bg-slate-50 p-4"><p class="text-2xl font-black text-slate-900" id="availableCount">4</p><p class="text-xs font-semibold text-slate-500">Demo drivers listed</p></div>
+          <div class="rounded-xl bg-slate-50 p-4"><p class="text-2xl font-black text-slate-900">3</p><p class="text-xs font-semibold text-slate-500">Health centers listed</p></div>
+        </div>
+        <p class="mt-4 text-xs leading-5 text-slate-500"><i class="fa-solid fa-circle-info mr-1 text-blue-600" aria-hidden="true"></i>Names, availability, distances and ETAs below are fictional demo data, not verified live services.</p>
+      </div>
+    </section>
+
+    <section class="mt-10" aria-labelledby="channels-title">
+      <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+        <div><p class="text-xs font-black uppercase tracking-[.16em] text-blue-700">Designed for different phones</p><h2 id="channels-title" class="mt-1 text-2xl font-black tracking-tight">Choose a request channel</h2></div>
+        <p class="max-w-xl text-sm text-slate-600">Explore how app, SMS and voice access could work. These controls demonstrate the experience; they do not send real messages or place calls.</p>
+      </div>
+      <div class="mt-5 flex flex-wrap gap-2" role="tablist" aria-label="Request channels">
+        <button id="tab-app" class="channel-tab rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white" type="button" role="tab" aria-selected="true" aria-controls="channelPanel" data-channel="app"><i class="fa-solid fa-mobile-screen-button mr-2" aria-hidden="true"></i>App Request</button>
+        <button id="tab-sms" class="channel-tab rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100" type="button" role="tab" aria-selected="false" aria-controls="channelPanel" data-channel="sms"><i class="fa-solid fa-comment-sms mr-2" aria-hidden="true"></i>SMS Simulator</button>
+        <button id="tab-ivr" class="channel-tab rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100" type="button" role="tab" aria-selected="false" aria-controls="channelPanel" data-channel="ivr"><i class="fa-solid fa-phone mr-2" aria-hidden="true"></i>IVR / Voice Call</button>
+      </div>
+      <div id="channelPanel" class="mt-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" role="tabpanel" aria-labelledby="tab-app">
+        <div id="channelContent"></div>
+      </div>
+    </section>
+
+    <section class="mt-10" aria-labelledby="drivers-title">
+      <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+        <div><p class="text-xs font-black uppercase tracking-[.16em] text-emerald-700">Illustrative matching dashboard</p><h2 id="drivers-title" class="mt-1 text-2xl font-black tracking-tight">Nearby local drivers</h2></div>
+        <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700"><input id="availableOnly" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500">Show available only</label>
+      </div>
+      <div id="driverList" class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"></div>
+    </section>
+
+    <section class="mt-10 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="centers-title">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div><p class="text-xs font-black uppercase tracking-[.16em] text-blue-700">Care directory · demo listings</p><h2 id="centers-title" class="mt-1 text-2xl font-black tracking-tight">Nearby health centers</h2><p class="mt-2 text-sm text-slate-600">Call ahead to confirm availability. For emergencies, call official services first.</p></div>
+        <label class="relative block sm:w-72"><span class="sr-only">Search health centers</span><i class="fa-solid fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true"></i><input id="centerSearch" type="search" placeholder="Search center or area" class="w-full rounded-xl border border-slate-300 py-3 pl-10 pr-3 text-sm placeholder:text-slate-400"></label>
+      </div>
+      <div class="mt-5 flex flex-wrap gap-2" role="group" aria-label="Filter by facility type">
+        <button class="facility-filter rounded-full bg-slate-900 px-4 py-2 text-xs font-bold text-white" type="button" data-filter="All" aria-pressed="true">All facilities</button>
+        <button class="facility-filter rounded-full border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50" type="button" data-filter="PHC" aria-pressed="false">Primary Health Centers</button>
+        <button class="facility-filter rounded-full border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50" type="button" data-filter="CHC" aria-pressed="false">Community Health Centers</button>
+      </div>
+      <div id="centerList" class="mt-4 divide-y divide-slate-100"></div>
+      <p id="centerEmpty" class="hidden py-8 text-center text-sm font-semibold text-slate-500">No demo health centers match your search.</p>
+    </section>
+
+    <section class="mt-10 rounded-2xl border border-amber-300 bg-amber-50 p-5 sm:flex sm:items-center sm:justify-between sm:gap-6 sm:p-6" aria-label="Important safety notice">
+      <div class="flex gap-3"><i class="fa-solid fa-shield-halved mt-1 text-xl text-amber-700" aria-hidden="true"></i><div><h2 class="font-black text-amber-950">Community transport is not an ambulance dispatch</h2><p class="mt-1 text-sm leading-6 text-amber-900">For life-threatening emergencies, always contact official services first: dial 112, 108, or 102. This prototype does not send requests to real drivers.</p></div></div>
+      <div class="mt-4 flex shrink-0 gap-2 sm:mt-0"><a href="tel:112" class="rounded-lg bg-red-700 px-4 py-2.5 text-sm font-extrabold text-white hover:bg-red-800">Call 112</a><a href="tel:108" class="rounded-lg border border-amber-400 bg-white px-4 py-2.5 text-sm font-extrabold text-amber-950 hover:bg-amber-100">Call 108</a></div>
+    </section>
+  </main>
+
+  <footer class="mt-12 border-t border-slate-200 bg-white">
+    <div class="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+      <div><p class="font-extrabold text-slate-900">Gram-Emergency Ride</p><p class="text-xs text-slate-500">Smart Rural Emergency Transport Coordination</p></div>
+      <div class="flex items-center gap-3">
+        <img src="./founder.jpeg" alt="" class="h-10 w-10 rounded-full border border-slate-200 object-cover">
+        <p class="text-xs font-semibold text-slate-600">Created by <span class="font-black text-slate-900">Debanjan Ghosh</span> — Founder &amp; Developer · Class XI-A, PM Shri Kendriya Vidyalaya No. 2 Faridabad</p>
+      </div>
+      <p class="text-xs text-slate-500">Prototype only · Demo data is not a real service</p>
+    </div>
+  </footer>
+
+  <dialog id="sosDialog" class="w-[calc(100%-2rem)] max-w-lg rounded-3xl border-0 p-0 shadow-2xl">
+    <form id="sosForm" class="p-6 sm:p-8">
+      <div class="flex items-start justify-between gap-4">
+        <div><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-red-700"><i class="fa-solid fa-truck-medical" aria-hidden="true"></i></span><h2 class="mt-3 text-2xl font-black text-slate-950">Request a local ride</h2><p class="mt-1 text-sm leading-5 text-slate-600">This creates a simulated request only. Call official emergency services first if this is life-threatening.</p></div>
+        <button id="closeDialog" type="button" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Close emergency request form"><i class="fa-solid fa-xmark text-xl" aria-hidden="true"></i></button>
+      </div>
+      <label class="mt-6 block text-sm font-bold text-slate-800" for="emergencyType">What kind of emergency?</label>
+      <select id="emergencyType" required class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm">
+        <option value="">Select an emergency type</option>
+        <option>Medical Emergency</option>
+        <option>Pregnancy / Labour</option>
+        <option>Road Accident</option>
+        <option>Other urgent transport</option>
+      </select>
+      <fieldset class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <legend class="px-1 text-sm font-bold text-slate-800">Automatic pickup location</legend>
+        <div class="flex items-start gap-3">
+          <i class="fa-solid fa-location-dot mt-1 text-red-600" aria-hidden="true"></i>
+      <div class="flex-1"><p id="gpsLocation" class="text-sm font-bold text-slate-800">Requesting device location…</p><p id="gpsNote" class="mt-1 text-xs text-slate-500">Your browser will ask permission. Location stays in this page.</p></div>
+      <button id="refreshGps" type="button" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100"><i class="fa-solid fa-location-crosshairs mr-1" aria-hidden="true"></i>Try GPS</button>
+        </div>
+      </fieldset>
+      <p id="formError" class="mt-3 hidden text-sm font-semibold text-red-700" role="alert"></p>
+      <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <button id="cancelDialog" type="button" class="rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
+        <button id="submitSos" type="submit" disabled class="rounded-xl bg-red-600 px-5 py-3 text-sm font-black text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"><i class="fa-solid fa-magnifying-glass-location mr-2" aria-hidden="true"></i>Find a local ride</button>
+      </div>
+      <p class="mt-4 text-center text-[11px] leading-4 text-slate-500">Your device location is only used to show this pickup point in the page. Driver matching and map route are simulated.</p>
+    </form>
+  </dialog>
+
+  <div id="toast" class="pointer-events-none fixed bottom-4 left-1/2 z-50 hidden -translate-x-1/2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-xl" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const drivers = [
+        { id: "rajesh", name: "Rajesh Kumar", vehicle: "Mahindra Bolero", type: "Rural utility vehicle", distance: 1.8, eta: 8, icon: "fa-truck-pickup", status: "Available", verified: true },
+        { id: "rameshwar", name: "Rameshwar", vehicle: "Omni Ambulance", type: "Community patient transport", distance: 3.2, eta: 12, icon: "fa-truck-medical", status: "Available", verified: true },
+        { id: "suresh", name: "Suresh", vehicle: "Toto / E-Rickshaw", type: "Short-distance transport", distance: 0.9, eta: 6, icon: "fa-car-side", status: "Available", verified: true },
+        { id: "anita", name: "Anita Devi", vehicle: "Tractor & Trolley", type: "Local transport (demo)", distance: 5.4, eta: 18, icon: "fa-tractor", status: "On another trip", verified: true }
+      ];
+      const centers = [
+        { name: "Example Village Primary Health Centre", short: "Example Village PHC", type: "PHC", area: "Main Road, Example Village", distance: 2.4, availability: "Open · Demo listing", phone: "+911234560101", service: "Primary care · First aid" },
+        { name: "Riverbank Primary Health Centre", short: "Riverbank PHC", type: "PHC", area: "Riverbank Road", distance: 6.1, availability: "Open · Demo listing", phone: "+911234560102", service: "Primary care · Maternity" },
+        { name: "Block Community Health Centre", short: "Block CHC", type: "CHC", area: "Block Headquarters", distance: 12.8, availability: "Hours not confirmed", phone: "+911234560103", service: "Community care · Referral" }
+      ];
+
+      const $ = (selector, root = document) => root.querySelector(selector);
+      const dialog = $("#sosDialog");
+      const toast = $("#toast");
+      let activeFilter = "All";
+      let countdownInterval = null;
+      let toastTimeout = null;
+      let routeAnimationFrame = null;
+      let locationPromise = null;
+      let pickupLocation = null;
+      let currentRequest = null;
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+        })[char]);
+      }
+
+      function showToast(message) {
+        toast.textContent = message;
+        toast.classList.remove("hidden");
+        clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => toast.classList.add("hidden"), 2800);
+      }
+
+      function renderDrivers() {
+        const onlyAvailable = $("#availableOnly").checked;
+        const visibleDrivers = drivers.filter((driver) => !onlyAvailable || driver.status === "Available");
+        $("#availableCount").textContent = String(drivers.filter((driver) => driver.status === "Available").length);
+        $("#driverList").innerHTML = visibleDrivers.map((driver) => {
+          const enRoute = driver.status.startsWith("En route");
+          const available = driver.status === "Available";
+          return `
+            <article class="rounded-2xl border ${enRoute ? "border-blue-200 bg-blue-50/50" : "border-slate-200 bg-white"} p-5 shadow-sm">
+              <div class="flex items-start justify-between gap-2">
+                <span class="grid h-11 w-11 place-items-center rounded-xl ${enRoute ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-700"}"><i class="fa-solid ${driver.icon} text-lg" aria-hidden="true"></i></span>
+                <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold ${available ? "bg-emerald-100 text-emerald-800" : enRoute ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-600"}"><span class="h-1.5 w-1.5 rounded-full ${available ? "bg-emerald-500" : enRoute ? "bg-blue-500" : "bg-slate-400"}"></span>${escapeHtml(driver.status)}</span>
+              </div>
+              <h3 class="mt-4 font-black text-slate-950">${escapeHtml(driver.name)}</h3>
+              <p class="mt-0.5 text-sm font-semibold text-slate-700">${escapeHtml(driver.vehicle)}</p>
+              <p class="mt-1 text-xs text-slate-500">${escapeHtml(driver.type)}</p>
+              <div class="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs font-semibold text-slate-600">
+                <span><i class="fa-solid fa-route mr-1 text-slate-400" aria-hidden="true"></i>${driver.distance.toFixed(1)} km</span>
+                <span><i class="fa-regular fa-clock mr-1 text-slate-400" aria-hidden="true"></i>${enRoute ? `<span id="eta-${driver.id}">${driver.countdown ?? driver.eta * 60}</span> sec` : `~${driver.eta} min`}</span>
+              </div>
+              <p class="mt-3 text-xs font-bold text-emerald-800"><i class="fa-solid fa-circle-check mr-1" aria-hidden="true"></i>Demo verification badge</p>
+              <button type="button" class="driver-request mt-4 w-full rounded-xl ${available ? "bg-slate-900 text-white hover:bg-slate-800" : "cursor-not-allowed bg-slate-100 text-slate-500"} px-3 py-3 text-sm font-extrabold transition" data-driver="${driver.id}" ${available ? "" : "disabled"}>
+                ${available ? '<i class="fa-solid fa-handshake mr-2" aria-hidden="true"></i>Request this driver' : enRoute ? '<i class="fa-solid fa-route mr-2" aria-hidden="true"></i>En route' : '<i class="fa-solid fa-ban mr-2" aria-hidden="true"></i>Currently unavailable'}
+              </button>
+            </article>`;
+        }).join("");
+        $("#driverList").querySelectorAll(".driver-request").forEach((button) => {
+          button.addEventListener("click", () => requestDriver(button.dataset.driver));
+        });
+      }
+
+      function renderCenters() {
+        const query = $("#centerSearch").value.trim().toLowerCase();
+        const filtered = centers.filter((center) => (activeFilter === "All" || center.type === activeFilter) &&
+          `${center.name} ${center.area} ${center.type} ${center.service}`.toLowerCase().includes(query));
+        $("#centerList").innerHTML = filtered.map((center) => `
+          <article class="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex gap-3">
+              <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl ${center.type === "CHC" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"}"><i class="fa-solid ${center.type === "CHC" ? "fa-hospital" : "fa-house-medical"}" aria-hidden="true"></i></span>
+              <div><div class="flex flex-wrap items-center gap-2"><h3 class="font-extrabold text-slate-900">${escapeHtml(center.short)}</h3><span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-600">${center.type}</span></div><p class="mt-1 text-xs text-slate-600">${escapeHtml(center.area)} · ${center.distance.toFixed(1)} km</p><p class="mt-1 text-xs font-semibold ${center.availability.startsWith("Open") ? "text-emerald-700" : "text-amber-700"}">${escapeHtml(center.availability)} <span class="font-normal text-slate-500">· ${escapeHtml(center.service)}</span></p></div>
+            </div>
+            <a href="tel:${escapeHtml(center.phone)}" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50" aria-label="Call ${escapeHtml(center.short)} demo number"><i class="fa-solid fa-phone text-emerald-700" aria-hidden="true"></i>Call center</a>
+          </article>`).join("");
+        $("#centerEmpty").classList.toggle("hidden", filtered.length > 0);
+      }
+
+      function setTracker(title, detail, icon, meta = "") {
+        const tracker = $("#tracker");
+        const loading = title.toLowerCase().includes("searching");
+        tracker.className = `mt-5 rounded-2xl border p-5 ${loading ? "border-amber-200 bg-amber-50" : title.includes("Assigned") || title.includes("En route") ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50"}`;
+        const iconTone = loading ? "bg-amber-100 text-amber-700" : title.includes("Assigned") || title.includes("En route") ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600";
+        $("#tracker").querySelector(".grid").className = `grid h-11 w-11 shrink-0 place-items-center rounded-xl ${iconTone}`;
+        $("#tracker").querySelector(".grid i").className = `fa-solid ${icon}${loading ? " spin" : ""}`;
+        $("#trackerTitle").textContent = title;
+        $("#trackerDetail").textContent = detail;
+        $("#trackerMeta").textContent = meta;
+        $("#trackerMeta").classList.toggle("hidden", !meta);
+      }
+
+      function requestDriver(id) {
+        return requestDriverWithLocation(id);
+      }
+
+      async function requestDriverWithLocation(id) {
+        const driver = drivers.find((item) => item.id === id);
+        if (!driver || driver.status !== "Available") return;
+        if (!pickupLocation) {
+          setTracker("Getting your location…", "Allow location access in your browser so the pickup point can be set automatically.", "fa-location-crosshairs");
+          try {
+            await requestLocation();
+          } catch {
+            setTracker("Location unavailable", $("#gpsNote").textContent, "fa-location-dot", "Enable location permission and try again. Call 112, 108, or 102 for emergencies.");
+            return;
+          }
+        }
+        if (countdownInterval) clearInterval(countdownInterval);
+        driver.status = "En route";
+        driver.countdown = driver.eta * 60;
+        currentRequest = { ...(currentRequest || {}), driverId: id };
+        $("#driverLabel").textContent = driver.name;
+        setTracker("Driver Assigned!", `${driver.name} is marked en route in this simulation. Estimated arrival: about ${driver.eta} minutes.`, "fa-circle-check", "Simulated ride status · Not a real dispatch or verified live ETA");
+        renderDrivers();
+        animateDriverRoute(driver);
+        showToast(`${driver.name} marked En route (demo).`);
+        countdownInterval = setInterval(() => {
+          driver.countdown = Math.max(0, driver.countdown - 1);
+          const eta = $(`#eta-${driver.id}`);
+          if (eta) eta.textContent = String(driver.countdown);
+          if (driver.countdown === 0) {
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+            setTracker("Demo arrival time reached", `${driver.name}'s simulated ETA countdown is complete. This does not confirm a real vehicle arrival.`, "fa-flag-checkered", "For urgent assistance, call 112, 108, or 102.");
+          }
+        }, 1000);
+      }
+
+      function requestLocation(force = false) {
+        if (force) {
+          pickupLocation = null;
+          locationPromise = null;
+        }
+        if (pickupLocation) return Promise.resolve(pickupLocation);
+        if (locationPromise) return locationPromise;
+
+        $("#gpsLocation").textContent = "Waiting for device location…";
+        $("#gpsNote").textContent = "Allow the location permission prompt in your browser.";
+        $("#submitSos").disabled = true;
+        $("#refreshGps").disabled = true;
+        $("#refreshGps").classList.add("opacity-60");
+        locationPromise = new Promise((resolve, reject) => {
+          if (!window.isSecureContext) {
+            reject(new Error("Location needs HTTPS or localhost. Open this page on a secure connection and try again."));
+            return;
+          }
+          if (!("geolocation" in navigator)) {
+            reject(new Error("This browser does not support device location. Try a location-enabled browser."));
+            return;
+          }
+          navigator.geolocation.getCurrentPosition(
+            (position) => resolve({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy
+            }),
+            (error) => {
+              const messages = {
+                1: "Location permission was denied. Allow location access in your browser settings, then try GPS again.",
+                2: "Your device could not determine a location. Check GPS/location services and try again.",
+                3: "Location lookup timed out. Check your connection or GPS and try again."
+              };
+              reject(new Error(messages[error.code] || "Could not read your device location. Try again."));
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+          );
+        });
+
+        const pendingLocation = locationPromise;
+        return pendingLocation.then((location) => {
+          pickupLocation = location;
+          $("#gpsLocation").textContent = `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`;
+          $("#gpsNote").textContent = `Device location found · accuracy about ${Math.round(location.accuracy)} m`;
+          $("#submitSos").disabled = false;
+          return location;
+        }).catch((error) => {
+          $("#gpsLocation").textContent = "Could not get device location";
+          $("#gpsNote").textContent = error.message;
+          $("#formError").textContent = error.message;
+          $("#formError").classList.remove("hidden");
+          throw error;
+        }).finally(() => {
+          if (locationPromise === pendingLocation) locationPromise = null;
+          $("#refreshGps").disabled = false;
+          $("#refreshGps").classList.remove("opacity-60");
+        });
+      }
+
+      function animateDriverRoute(driver) {
+        if (routeAnimationFrame) cancelAnimationFrame(routeAnimationFrame);
+        const map = $("#routeMap");
+        const route = $("#routeBase");
+        const progress = $("#routeProgress");
+        const marker = $("#driverMarker");
+        const instruction = $("#routeInstruction");
+        const routeLength = route.getTotalLength();
+        const duration = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 1 : 35000;
+        const turns = [
+          [0.12, "Driver is turning onto Village Road…"],
+          [0.34, "Driver is taking the turn at Market Street…"],
+          [0.52, "Driver is turning near the bus stand…"],
+          [0.72, "Driver is taking North Lane…"],
+          [0.9, "Driver is approaching your pickup on Main Road…"]
+        ];
+        let lastInstruction = "";
+        progress.style.strokeDasharray = `${routeLength} ${routeLength}`;
+        progress.style.strokeDashoffset = String(routeLength);
+        map.classList.remove("hidden");
+        $("#routeDistance").innerHTML = `<i class="fa-solid fa-location-dot mr-1 text-blue-700" aria-hidden="true"></i>Pickup GPS: ${pickupLocation.latitude.toFixed(5)}, ${pickupLocation.longitude.toFixed(5)} · Route is illustrative`;
+
+        const startedAt = performance.now();
+        function step(now) {
+          const ratio = Math.min(1, (now - startedAt) / duration);
+          const distance = routeLength * ratio;
+          const point = route.getPointAtLength(distance);
+          const ahead = route.getPointAtLength(Math.min(routeLength, distance + 2));
+          const angle = Math.atan2(ahead.y - point.y, ahead.x - point.x) * 180 / Math.PI;
+          marker.setAttribute("transform", `translate(${point.x} ${point.y}) rotate(${angle})`);
+          progress.style.strokeDashoffset = String(routeLength - distance);
+          const nextTurn = turns.find(([threshold]) => ratio < threshold);
+          const nextText = nextTurn ? nextTurn[1] : ratio < 1 ? "Driver is on the final approach…" : "Illustrative route preview complete · ETA remains estimated";
+          if (nextText !== lastInstruction) {
+            instruction.textContent = nextText;
+            lastInstruction = nextText;
+          }
+          if (ratio < 1) routeAnimationFrame = requestAnimationFrame(step);
+        }
+        routeAnimationFrame = requestAnimationFrame(step);
+      }
+
+      function startRequest(type) {
+        if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+        currentRequest = { type };
+        $("#typeLabel").textContent = type;
+        $("#pickupLabel").textContent = pickupLocation
+          ? `${pickupLocation.latitude.toFixed(5)}, ${pickupLocation.longitude.toFixed(5)}`
+          : "Waiting for device location";
+        $("#driverLabel").textContent = "Searching…";
+        $("#routeMap").classList.add("hidden");
+        setTracker("Searching for nearest verified drivers…", "Checking the demo driver list near your detected pickup point.", "fa-magnifying-glass-location", "Simulated matching · No real drivers are contacted");
+        renderDrivers();
+        setTimeout(() => {
+          if (!currentRequest || currentRequest.type !== type) return;
+          const nearest = drivers
+            .filter((driver) => driver.status === "Available")
+            .sort((a, b) => a.distance - b.distance)[0];
+          if (nearest) {
+            requestDriver(nearest.id);
+          } else {
+            $("#driverLabel").textContent = "No driver available";
+            setTracker("No demo driver available", "Please contact official services for emergency help. The displayed directory is only sample data.", "fa-circle-exclamation", "Call official services: 112 · 108 · 102");
+          }
+        }, 1800);
+      }
+
+      function selectChannel(channel) {
+        const panel = $("#channelPanel");
+        document.querySelectorAll(".channel-tab").forEach((tab) => {
+          const selected = tab.dataset.channel === channel;
+          tab.setAttribute("aria-selected", String(selected));
+          tab.className = `channel-tab rounded-xl px-4 py-3 text-sm font-bold ${selected ? "bg-slate-900 text-white" : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"}`;
+          if (selected) panel.setAttribute("aria-labelledby", tab.id);
+        });
+        const content = $("#channelContent");
+        if (channel === "sms") {
+          const requestType = currentRequest?.type || "Medical Emergency";
+          content.innerHTML = `
+            <div class="grid gap-5 md:grid-cols-[1fr_auto] md:items-center">
+              <div><h3 class="font-extrabold text-slate-900"><i class="fa-solid fa-comment-sms mr-2 text-emerald-700" aria-hidden="true"></i>SMS alert preview</h3><p class="mt-1 text-sm text-slate-600">Example of a short text that could be sent through an SMS workflow.</p>
+                <div class="mt-4 max-w-xl rounded-2xl rounded-tl-sm bg-emerald-50 p-4 text-sm leading-6 text-slate-800 ring-1 ring-emerald-200"><span class="block text-[10px] font-black uppercase tracking-wider text-emerald-800">Gram Ride · Demo message</span><p class="mt-2">RIDE REQUEST · ${escapeHtml(requestType.toUpperCase())}<br>Pickup GPS: ${pickupLocation ? `${pickupLocation.latitude.toFixed(5)}, ${pickupLocation.longitude.toFixed(5)}` : "Not set — requested automatically when SOS starts"}<br>Nearest listed driver: ${escapeHtml(drivers.find((driver) => driver.status === "Available")?.name || "No driver currently available")}<br>ETA shown is simulated. Call 112/108/102 for emergency services.</p></div>
+              </div><button id="smsPreview" type="button" class="rounded-xl border border-emerald-300 bg-emerald-50 px-5 py-3 text-sm font-extrabold text-emerald-900 hover:bg-emerald-100"><i class="fa-solid fa-paper-plane mr-2" aria-hidden="true"></i>Preview SMS alert</button>
+            </div>`;
+          $("#smsPreview").addEventListener("click", () => showToast("SMS preview only — no message was sent."));
+        } else if (channel === "ivr") {
+          content.innerHTML = `<div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between"><div><h3 class="font-extrabold text-slate-900"><i class="fa-solid fa-phone-volume mr-2 text-blue-700" aria-hidden="true"></i>Feature-phone voice prompt</h3><p class="mt-1 max-w-2xl text-sm leading-6 text-slate-600">A sample IVR prompt for callers without a smartphone. Browser speech support varies by device and language.</p><blockquote class="mt-3 rounded-xl border-l-4 border-blue-500 bg-blue-50 p-4 text-sm leading-6 text-slate-800">“Welcome to Gram Emergency Ride. If this is life-threatening, hang up and call 112, 108, or 102. For a community ride, press 1 for medical help, 2 for pregnancy or labour, or 3 for road accident.”</blockquote></div><button id="playVoice" type="button" class="shrink-0 rounded-xl bg-blue-700 px-5 py-3 text-sm font-extrabold text-white hover:bg-blue-800"><i class="fa-solid fa-volume-high mr-2" aria-hidden="true"></i>Play voice sample</button></div><p id="voiceNotice" class="mt-3 text-xs text-slate-500" aria-live="polite">Audio is generated locally by your browser, if supported. No call is placed.</p>`;
+          $("#playVoice").addEventListener("click", () => {
+            if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
+              $("#voiceNotice").textContent = "Speech playback is not supported in this browser. The sample prompt is shown above.";
+              return;
+            }
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance("Welcome to Gram Emergency Ride. If this is life-threatening, hang up and call 112, 108, or 102. For a community ride, press 1 for medical help, 2 for pregnancy or labour, or 3 for road accident.");
+            utterance.lang = "en-IN";
+            utterance.onend = () => { $("#voiceNotice").textContent = "Voice sample finished. This was not a real phone call."; };
+            utterance.onerror = () => { $("#voiceNotice").textContent = "Could not play audio on this device. The sample prompt is shown above."; };
+            $("#voiceNotice").textContent = "Playing a local voice sample…";
+            window.speechSynthesis.speak(utterance);
+          });
+        } else {
+          content.innerHTML = `<div class="flex flex-col gap-3 sm:flex-row sm:items-center"><span class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-700"><i class="fa-solid fa-mobile-screen-button text-xl" aria-hidden="true"></i></span><div><h3 class="font-extrabold text-slate-900">App request dashboard</h3><p class="mt-1 text-sm leading-6 text-slate-600">Use the red SOS button to open the request form, or choose a listed driver below. A real service would need consent, verified providers and a secure dispatch system.</p></div></div>`;
+        }
+      }
+
+      $("#openSos").addEventListener("click", () => {
+        $("#formError").classList.add("hidden");
+        $("#emergencyType").value = "";
+        dialog.showModal();
+        requestLocation().catch(() => {});
+      });
+      $("#closeDialog").addEventListener("click", () => dialog.close());
+      $("#cancelDialog").addEventListener("click", () => dialog.close());
+      $("#refreshGps").addEventListener("click", () => requestLocation(true).catch(() => {}));
+      dialog.addEventListener("click", (event) => {
+        if (event.target === dialog) dialog.close();
+      });
+      dialog.addEventListener("close", () => $("#openSos").focus());
+      $("#sosForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const type = $("#emergencyType").value;
+        if (!type) {
+          $("#formError").textContent = "Choose an emergency type to continue.";
+          $("#formError").classList.remove("hidden");
+          $("#emergencyType").focus();
+          return;
+        }
+        if (!pickupLocation) {
+          try {
+            await requestLocation();
+          } catch {
+            return;
+          }
+        }
+        dialog.close();
+        startRequest(type);
+        selectChannel("app");
+        document.querySelector("#tracker").scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+      $("#availableOnly").addEventListener("change", renderDrivers);
+      $("#centerSearch").addEventListener("input", renderCenters);
+      document.querySelectorAll(".facility-filter").forEach((button) => button.addEventListener("click", () => {
+        activeFilter = button.dataset.filter;
+        document.querySelectorAll(".facility-filter").forEach((filter) => {
+          const selected = filter === button;
+          filter.setAttribute("aria-pressed", String(selected));
+          filter.className = `facility-filter rounded-full px-4 py-2 text-xs font-bold ${selected ? "bg-slate-900 text-white" : "border border-slate-300 text-slate-700 hover:bg-slate-50"}`;
+        });
+        renderCenters();
+      }));
+      document.querySelectorAll(".channel-tab").forEach((tab, index, tabs) => {
+        tab.addEventListener("click", () => selectChannel(tab.dataset.channel));
+        tab.addEventListener("keydown", (event) => {
+          if (!["ArrowRight", "ArrowLeft"].includes(event.key)) return;
+          event.preventDefault();
+          const direction = event.key === "ArrowRight" ? 1 : -1;
+          tabs[(index + direction + tabs.length) % tabs.length].focus();
+          tabs[(index + direction + tabs.length) % tabs.length].click();
+        });
+      });
+      window.addEventListener("beforeunload", () => {
+        if (countdownInterval) clearInterval(countdownInterval);
+        if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+      });
+
+      renderDrivers();
+      renderCenters();
+      selectChannel("app");
+    })();
+  </script>
+</body>
+</html>
